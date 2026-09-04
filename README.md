@@ -52,7 +52,7 @@ decomposition-automated/
 ### 1. Setup Virtual Environment (`.venv`)
 ```powershell
 # Navigate to the repository
-cd decomposition-automated
+cd decomposition-chart
 
 # Create virtual environment
 python -m venv .venv
