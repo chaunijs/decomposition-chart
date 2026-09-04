@@ -1,0 +1,50 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Build & packaging
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.spec
+
+# Application runtime cache & history
+.history_cache/
+.recent_files.json
+.streamlit/
+
+# OS & Editor temporary files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+~$*
+*.tmp
+
+# Excel spreadsheets
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+*.xltx
+*.xltm
+*.xlt
