@@ -333,6 +333,49 @@ def fast_extract_excel_named_ranges(file_source: Union[str, bytes, io.BytesIO]) 
                         sheet_offsets[ws_name] = (1, 1)
 
             classified_items = []
+
+            # 1. Discover Excel Tables (ListObjects)
+            sheet_file_to_name = {target.split("/")[-1]: name for target, name in target_to_sheet_name.items()}
+            table_to_sheet = {}
+            for zname in zf.namelist():
+                if zname.startswith("xl/worksheets/_rels/") and zname.endswith(".rels"):
+                    sheet_file = zname.replace("xl/worksheets/_rels/", "").replace(".rels", "")
+                    sh_name = sheet_file_to_name.get(sheet_file)
+                    if sh_name:
+                        try:
+                            rels_root = ET.fromstring(zf.read(zname))
+                            for rel in rels_root:
+                                if "table" in rel.attrib.get("Type", "").lower():
+                                    tbl_target = rel.attrib["Target"].replace("\\", "/").split("/")[-1]
+                                    table_to_sheet[tbl_target] = sh_name
+                        except Exception:
+                            pass
+
+            for tbl_file, sh_name in table_to_sheet.items():
+                tbl_path = "xl/tables/" + tbl_file
+                if tbl_path in zf.namelist():
+                    try:
+                        t_root = ET.fromstring(zf.read(tbl_path))
+                        t_name = t_root.get("name") or t_root.get("displayName")
+                        t_ref = t_root.get("ref")
+                        role, token = classify_name(t_name)
+                        if role and t_ref:
+                            min_c, min_r, max_c, max_r = range_boundaries(t_ref)
+                            classified_items.append({
+                                "name": t_name,
+                                "role": role,
+                                "token": token,
+                                "sheet": sh_name,
+                                "min_c": min_c,
+                                "min_r": min_r,
+                                "max_c": max_c,
+                                "max_r": max_r,
+                                "formula": t_ref
+                            })
+                    except Exception:
+                        pass
+
+            # 2. Discover Defined Names
             for dn in root.findall(".//ns:definedName", ns):
                 name = dn.attrib.get("name")
                 text = dn.text
@@ -680,6 +723,27 @@ def openpyxl_extract_excel_named_ranges(file_source: Union[str, bytes, io.BytesI
                         "max_r": max_r
                     })
 
+        # Also discover Excel Tables (ListObjects) across all worksheets
+        for ws in wb.worksheets:
+            if hasattr(ws, "tables"):
+                for t_name in ws.tables:
+                    role, token = classify_name(t_name)
+                    if role:
+                        tbl = ws.tables[t_name]
+                        t_ref = getattr(tbl, "ref", None)
+                        if t_ref:
+                            min_c, min_r, max_c, max_r = range_boundaries(t_ref)
+                            classified_items.append({
+                                "name": t_name,
+                                "role": role,
+                                "token": token,
+                                "sheet": ws.title,
+                                "min_c": min_c,
+                                "min_r": min_r,
+                                "max_c": max_c,
+                                "max_r": max_r
+                            })
+
         cont_items = [i for i in classified_items if i["role"] == "contribution"]
         if not cont_items:
             cont_items = [i for i in classified_items if i["role"] == "growth"]
@@ -991,7 +1055,16 @@ def compute_columnar_decomposition(
         return result
 
     result = []
+    if not metric_col or metric_col not in df.columns:
+        num_cols = [c for c, dt in zip(df.columns, df.dtypes) if dt in (pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64, pl.Float32, pl.Float64)]
+        if num_cols:
+            metric_col = num_cols[0]
+        else:
+            return []
+
     total_val = benchmark_total or float(df[metric_col].sum() or 0.0)
+    if total_val == 0.0:
+        total_val = 1.0
 
     for dim in dimensions:
         if dim not in df.columns:

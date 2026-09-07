@@ -48,6 +48,8 @@ Desktop.ini
 *.xltx
 *.xltm
 *.xlt
+!sample_data/*.xlsx
+!dataset-decomp.xlsx
 
 # Databricks bundle artifacts
 .databricks/

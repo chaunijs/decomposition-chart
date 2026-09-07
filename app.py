@@ -109,11 +109,7 @@ def main():
             clear_history()
             st.rerun()
 
-    # 3. Auto-load default dataset-decomp.xlsx if no file explicitly chosen
-    if not active_path and os.path.exists(default_dataset):
-        active_path = default_dataset
-        active_filename = "dataset-decomp.xlsx"
-
+    # Do not auto-load on start: only process when user uploads a file or selects from history
     columns_data = []
     display_df = pl.DataFrame()
     selected_prod_label = ""
@@ -125,6 +121,9 @@ def main():
 
         if is_excel:
             named_range_data = get_cached_named_range_data_from_path(active_path, mtime)
+            if not named_range_data:
+                # Bypass cache in case an earlier empty result was stored
+                named_range_data = extract_excel_named_ranges(active_path)
             if named_range_data:
                 available_products = list(named_range_data.keys())
                 
@@ -157,63 +156,66 @@ def main():
             columns_data = compute_columnar_decomposition(df=df, dimensions=[], metric_col="")
             all_categories_dict = {"Custom_Data": columns_data}
             st.sidebar.success(f"Loaded: `{active_filename}`")
+
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 🎨 Visual Colors")
+        col_pos = st.sidebar.color_picker("Positive Color (Growth / BPS >= 0)", "#15803d")
+        col_neg = st.sidebar.color_picker("Negative Color (Growth / BPS < 0)", "#d81e3a")
     else:
-        st.sidebar.info("Please upload an Excel/CSV file or select a workbook from history.")
+        col_pos = "#15803d"
+        col_neg = "#d81e3a"
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("## 🎨 Visual Colors")
-    col_pos = st.sidebar.color_picker("Positive Color (Growth / BPS >= 0)", "#15803d")
-    col_neg = st.sidebar.color_picker("Negative Color (Growth / BPS < 0)", "#d81e3a")
-
-    # Main UI Header
-    st.markdown('<div class="main-title">📊 Columnar Decomposition Chart</div>', unsafe_allow_html=True)
-    if selected_prod_label:
-        st.markdown(f'<div class="sub-title">Hierarchical contribution & variance analysis for <strong>{selected_prod_label}</strong></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="sub-title">Multi-level hierarchical breakdown with proportional shares, growth % badges, and bps impacts.</div>', unsafe_allow_html=True)
-
-    tab_columnar, tab_data = st.tabs([
-        "📊 Columnar Decomposition Chart",
-        "📋 Data & Range Summary"
-    ])
-
-    with tab_columnar:
-        if columns_data:
-            render_columnar_decomposition(
-                columns_data=columns_data,
-                all_categories_data=all_categories_dict or {selected_prod_label or "Decomposition": columns_data},
-                height=800,
-                positive_color=col_pos,
-                negative_color=col_neg,
-                chart_title=selected_prod_label or "Decomposition_Chart"
-            )
+    # Main UI Header with Download Template on the top right
+    col_hdr_left, col_hdr_right = st.columns([0.72, 0.28], vertical_alignment="center")
+    with col_hdr_left:
+        st.markdown('<div class="main-title">📊 Columnar Decomposition Chart</div>', unsafe_allow_html=True)
+        if selected_prod_label:
+            st.markdown(f'<div class="sub-title">Hierarchical contribution & variance analysis for <strong>{selected_prod_label}</strong></div>', unsafe_allow_html=True)
         else:
-            st.info("👋 **Welcome!** Please upload an Excel file (`.xlsx`) or CSV file in the sidebar to generate the Columnar Decomposition Chart.")
+            st.markdown('<div class="sub-title">Multi-level hierarchical breakdown with proportional shares, growth % badges, and bps impacts.</div>', unsafe_allow_html=True)
 
-    with tab_data:
-        st.subheader("Underlying Extracted Data")
-        has_data = False
-        if isinstance(display_df, pl.DataFrame):
-            has_data = not display_df.is_empty()
-        elif isinstance(display_df, pd.DataFrame):
-            has_data = not display_df.empty
+    with col_hdr_right:
+        template_path = os.path.join(workspace_dir, "sample_data", "Decomposition_Chart_Template.xlsx")
+        if not os.path.exists(template_path):
+            template_path = default_dataset
 
-        if has_data:
-            st.dataframe(display_df, use_container_width=True)
-            if hasattr(display_df, "write_csv"):
-                csv_bytes = display_df.write_csv().encode("utf-8")
-            else:
-                csv_bytes = display_df.to_csv(index=False).encode("utf-8")
-            now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_prod = (selected_prod_label or "data").replace(" ", "_")
+        if os.path.exists(template_path):
+            with open(template_path, "rb") as f_tpl:
+                tpl_bytes = f_tpl.read()
             st.download_button(
-                "📥 Download Table as CSV",
-                data=csv_bytes,
-                file_name=f"decomp_{safe_prod}_{now_str}.csv",
-                mime="text/csv"
+                label="📥 Download Excel Template",
+                data=tpl_bytes,
+                file_name="Decomposition_Chart_Template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Download a ready-to-use Excel template configured with all named tables (contribution, bps, growth, labels).",
+                use_container_width=True
             )
-        else:
-            st.info("No table data available.")
+
+    # Render Columnar Decomposition Chart directly
+    if columns_data:
+        render_columnar_decomposition(
+            columns_data=columns_data,
+            all_categories_data=all_categories_dict or {selected_prod_label or "Decomposition": columns_data},
+            height=800,
+            positive_color=col_pos,
+            negative_color=col_neg,
+            chart_title=selected_prod_label or "Decomposition_Chart"
+        )
+    else:
+        st.markdown("""
+        <div style="background-color: #1e293b; border-radius: 12px; padding: 2.2rem; margin-top: 1.5rem; border: 1px solid #334155; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">📊</div>
+            <h3 style="color: #f8fafc; margin-bottom: 0.6rem; font-weight: 700;">No File Loaded Yet</h3>
+            <p style="color: #94a3b8; font-size: 1rem; max-width: 580px; margin: 0 auto 1.5rem auto; line-height: 1.6;">
+                To generate the <strong>Columnar Decomposition & Marimekko Chart</strong>, please <strong>upload an Excel workbook</strong> (.xlsx) or select one from <strong>Recent Workbooks</strong> in the sidebar.
+            </p>
+            <div style="display: inline-flex; gap: 1rem; color: #cbd5e1; font-size: 0.9rem; background: #0f172a; padding: 0.8rem 1.4rem; border-radius: 8px; border: 1px solid #1e293b;">
+                <span>📁 <strong>Step 1:</strong> Select or upload file</span>
+                <span>⚡ <strong>Step 2:</strong> Automatic processing</span>
+                <span>📈 <strong>Step 3:</strong> Interactive chart visualizes</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
