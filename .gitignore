@@ -48,3 +48,6 @@ Desktop.ini
 *.xltx
 *.xltm
 *.xlt
+
+# Databricks bundle artifacts
+.databricks/

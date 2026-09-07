@@ -59,17 +59,26 @@ def add_file_to_history(filename: str, file_bytes: bytes) -> Dict[str, Any]:
     ensure_dirs()
     cached_path = os.path.join(CACHE_DIR, filename)
 
-    try:
-        with open(cached_path, "wb") as f:
-            f.write(file_bytes)
-    except Exception:
-        pass
+    need_write = True
+    if os.path.exists(cached_path) and os.path.getsize(cached_path) == len(file_bytes):
+        need_write = False
+
+    if need_write:
+        try:
+            with open(cached_path, "wb") as f:
+                f.write(file_bytes)
+        except Exception:
+            pass
 
     size_kb = len(file_bytes) / 1024.0
     size_str = f"{size_kb / 1024.0:.1f} MB" if size_kb >= 1024 else f"{size_kb:.1f} KB"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     history = load_history()
+    # If the topmost entry is already this file, reuse it
+    if history and history[0].get("path") == cached_path:
+        return history[0]
+
     # Remove existing entry for the same filename if present
     history = [h for h in history if h.get("filename") != filename and h.get("path") != cached_path]
 

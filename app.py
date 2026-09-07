@@ -127,18 +127,24 @@ def main():
             named_range_data = get_cached_named_range_data_from_path(active_path, mtime)
             if named_range_data:
                 available_products = list(named_range_data.keys())
-                # Default to LIQUID to immediately match the reference screenshot
-                default_idx = available_products.index("LIQUID") if "LIQUID" in available_products else 0
+                
+                # Dynamic category selection strictly based on workbook named ranges
+                saved_category = st.session_state.get("selected_product_category")
+                default_idx = available_products.index(saved_category) if saved_category in available_products else 0
+
                 selected_prod = st.sidebar.selectbox(
                     "Select Product Category",
                     available_products,
-                    index=default_idx
+                    index=default_idx,
+                    key="product_category_selector"
                 )
+                st.session_state["selected_product_category"] = selected_prod
+
                 selected_prod_label = selected_prod
                 columns_data = named_range_data[selected_prod]["columns_data"]
                 display_df = named_range_data[selected_prod]["df"]
                 all_categories_dict = {k: v["columns_data"] for k, v in named_range_data.items()}
-                st.sidebar.success(f"Loaded: `{selected_prod}` from `{active_filename}`")
+                st.sidebar.success(f"Loaded: **{selected_prod}** ({len(available_products)} categories in `{active_filename}`)")
             else:
                 df = get_cached_custom_dataframe_from_path(active_path, mtime)
                 display_df = df

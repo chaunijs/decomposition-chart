@@ -1,0 +1,24 @@
+# Databricks Asset Bundle definition
+# See: https://docs.databricks.com/en/dev-tools/bundles/index.html
+bundle:
+  name: decomposition-chart
+
+resources:
+  apps:
+    decomposition_chart:
+      name: "decomposition-chart"
+      description: "Columnar Decomposition & Marimekko Chart Studio"
+      source_code_path: .
+
+targets:
+  dev:
+    mode: development
+    workspace:
+      # TODO: Replace with your Azure Databricks workspace URL
+      host: https://adb-277396363408557.17.azuredatabricks.net
+
+  prod:
+    mode: production
+    workspace:
+      # TODO: Replace with your Azure Databricks workspace URL
+      host: https://adb-277396363408557.17.azuredatabricks.net

@@ -91,6 +91,23 @@ def render_columnar_decomposition(
       font-weight: 800;
       letter-spacing: 0.02em;
     }}
+    .cat-dropdown {{
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1.5px solid #7dd3fc;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+    }}
+    .cat-dropdown:hover, .cat-dropdown:focus {{
+      border-color: #0284c7;
+      background: #bae6fd;
+    }}
     .toolbar-right {{
       display: flex;
       align-items: center;
@@ -347,7 +364,7 @@ def render_columnar_decomposition(
   <div class="toolbar-panel">
     <div class="toolbar-left">
       <span>Category:</span>
-      <span class="cat-badge">{chart_title}</span>
+      <select id="cat-selector" class="cat-dropdown" title="Select Product Category"></select>
     </div>
     <div class="toolbar-right">
       <button class="export-btn btn-all" id="btn-export-all-png" title="Export PNG images for all categories (POWDER, LIQUID, etc.) into a ZIP file">
@@ -480,8 +497,34 @@ def render_columnar_decomposition(
       }});
     }}
 
+    let currentCategory = "{chart_title}";
+
+    // Initialize interactive category dropdown in toolbar
+    const catSelector = document.getElementById("cat-selector");
+    if (catSelector) {{
+      catSelector.innerHTML = "";
+      const catList = Object.keys(allCategories);
+      catList.forEach((cat) => {{
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.innerText = cat;
+        if (cat.toUpperCase() === currentCategory.toUpperCase()) {{
+          opt.selected = true;
+        }}
+        catSelector.appendChild(opt);
+      }});
+
+      catSelector.addEventListener("change", (e) => {{
+        const chosen = e.target.value;
+        if (allCategories[chosen]) {{
+          currentCategory = chosen;
+          buildChartDOM(allCategories[chosen], colContainer, headerContainer);
+        }}
+      }});
+    }}
+
     // Initial render
-    buildChartDOM(data, colContainer, headerContainer);
+    buildChartDOM(allCategories[currentCategory] || data, colContainer, headerContainer);
 
     function getFileTimestamp() {{
       const d = new Date();
@@ -505,7 +548,7 @@ def render_columnar_decomposition(
       }}).then((canvas) => {{
         const link = document.createElement("a");
         const ts = getFileTimestamp();
-        link.download = "{chart_title.replace(' ', '_')}_Decomposition_" + ts + ".png";
+        link.download = currentCategory.replace(/[^a-zA-Z0-9_-]/g, '_') + "_Decomposition_" + ts + ".png";
         link.href = canvas.toDataURL("image/png");
         link.click();
 
