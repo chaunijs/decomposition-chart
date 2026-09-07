@@ -408,14 +408,17 @@ def render_columnar_decomposition(
       targetHeaderContainer.innerHTML = "";
 
       cols.forEach((col) => {{
+        const validBlocks = (col.blocks || []).filter(b => b && (b.share > 0));
+        if (validBlocks.length === 0) return;
+
         const colDiv = document.createElement("div");
         colDiv.className = "col-stack";
 
         // Total share in column
-        const totalColShare = col.blocks.reduce((acc, b) => acc + (b.share || 0), 0) || 100;
-        const blockCount = col.blocks.length;
+        const totalColShare = validBlocks.reduce((acc, b) => acc + (b.share || 0), 0) || 100;
+        const blockCount = validBlocks.length;
 
-        col.blocks.forEach((b) => {{
+        validBlocks.forEach((b) => {{
           const blockDiv = document.createElement("div");
           const isPos = b.is_positive !== undefined ? b.is_positive : (b.bps >= 0);
           blockDiv.className = `block ${{isPos ? "positive" : "negative"}}`;

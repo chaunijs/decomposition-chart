@@ -621,6 +621,8 @@ def fast_extract_excel_named_ranges(file_source: Union[str, bytes, io.BytesIO]) 
                         continue
 
                     share_pct = round(share_num * 100.0, 1) if 0 < share_num <= 1.0 else round(share_num, 1)
+                    if share_pct <= 0:
+                        continue
 
                     bps_num = 0
                     if bps_m and row_idx < len(bps_m) and col_idx < len(bps_m[row_idx]):
@@ -928,6 +930,8 @@ def openpyxl_extract_excel_named_ranges(file_source: Union[str, bytes, io.BytesI
                         continue
 
                     share_pct = round(share_num * 100.0, 1) if 0 < share_num <= 1.0 else round(share_num, 1)
+                    if share_pct <= 0:
+                        continue
 
                     bps_num = 0
                     if bps_m and row_idx < len(bps_m) and col_idx < len(bps_m[row_idx]):
@@ -1034,6 +1038,9 @@ def compute_columnar_decomposition(
             sub = df.filter(pl.col(col_map["column"]) == col_name)
             blocks = []
             for b_idx, row in enumerate(sub.to_dicts()):
+                share_val = float(row[col_map["share"]])
+                if share_val <= 0:
+                    continue
                 growth_val = row.get(col_map.get("growth", "growth"), 0.0) or 0.0
                 bps_val = row.get(col_map.get("bps", "bps"), 0) or 0
                 actual_lbl = str(row[col_map["label"]])
@@ -1042,7 +1049,7 @@ def compute_columnar_decomposition(
                     "label": actual_lbl,
                     "actual_label": actual_lbl,
                     "generic_label": generic_lbl,
-                    "share": float(row[col_map["share"]]),
+                    "share": share_val,
                     "growth": float(growth_val),
                     "bps": int(bps_val),
                     "is_positive": (bps_val >= 0 if col_map.get("bps") else growth_val >= 0)
@@ -1095,6 +1102,9 @@ def compute_columnar_decomposition(
 
         blocks = []
         for b_idx, row in enumerate(grouped.to_dicts()):
+            share_val = float(row["share"])
+            if share_val <= 0:
+                continue
             growth_val = float(row["growth"] or 0.0)
             bps_val = int(row["bps"] or 0)
             is_pos = (bps_val >= 0 if bps_col else growth_val >= 0)
@@ -1104,7 +1114,7 @@ def compute_columnar_decomposition(
                 "label": actual_lbl,
                 "actual_label": actual_lbl,
                 "generic_label": generic_lbl,
-                "share": float(row["share"]),
+                "share": share_val,
                 "growth": growth_val,
                 "bps": bps_val,
                 "is_positive": is_pos,
